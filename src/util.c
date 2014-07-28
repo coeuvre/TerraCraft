@@ -2,10 +2,25 @@
 
 #include "util.h"
 
+#include <stdio.h>
+
 #include <SDL.h>
 
+static long file_length(FILE *f) {
+    long pos = ftell(f);
+    fseek(f, 0, SEEK_END);
+    long len = ftell(f);
+    fseek(f, pos, SEEK_SET);
+    return len;
+}
+
 int compile_shader(GLenum type, const char *path, GLuint *shader_id) {
-    return 0;
+    FILE *f = fopen(path, "rb+");
+    GLint len = file_length(f);
+    GLchar *buf = malloc(len);
+    fread(buf, 1, len, f);
+    fclose(f);
+    return compile_shader_from_memory(type, buf, len, shader_id);
 }
 
 int compile_shader_from_memory(GLenum type, const GLchar *buf, GLint len,

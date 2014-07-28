@@ -1,5 +1,3 @@
-#include <assert.h>
-
 #include <glew.h>
 #include <SDL.h>
 #include <SDL_opengl.h>
@@ -17,6 +15,7 @@ static SDL_GLContext g_context = NULL;
 
 static GLuint g_program_id = 0;
 static GLint g_vertex_pos_2d_location = -1;
+static GLint g_timer_location = -1;
 static GLint g_projection_matrix_location = -1;
 static GLuint g_vao = 0;
 static GLuint g_vbo = 0;
@@ -33,25 +32,6 @@ static const GLfloat g_vertex_buffer_data[] = {
 
 static const GLint g_element_buffer_data[] = {0, 1, 2, 3};
 
-static int g_render_quad = 1;
-
-static const char *g_vertex_shader = "                                        \
-    #version 330 core                                                       \n\
-    uniform mat4 projection_matrix;                                         \n\
-    in vec3 LVertexPos2D;                                                   \n\
-    void main() {                                                           \n\
-        gl_Position = projection_matrix * vec4(LVertexPos2D.xyz, 1);        \n\
-    }                                                                       \n\
-";
-
-static const char *g_fragment_shader = "                                    \n\
-    #version 330 core                                                       \n\
-    out vec4 LFragment;                                                     \n\
-    void main() {                                                           \n\
-        LFragment = vec4(1.0, 0.0, 0.0, 1.0);                               \n\
-    }                                                                       \n\
-";
-
 static int initGL(void) {
     SDL_Log("OpenGL Version: %s\n", glGetString(GL_VERSION));
 
@@ -60,11 +40,11 @@ static int initGL(void) {
     GLuint vertex_shader_id = 0;
     GLuint fragment_shader_id = 0;
 
-    if (compile_shader_from_memory(GL_VERTEX_SHADER, g_vertex_shader, strlen(g_vertex_shader), &vertex_shader_id) != 0) {
+    if (compile_shader(GL_VERTEX_SHADER, "shader.vert", &vertex_shader_id) != 0) {
         return -1;
     }
 
-    if (compile_shader_from_memory(GL_FRAGMENT_SHADER, g_fragment_shader, strlen(g_fragment_shader), &fragment_shader_id) != 0) {
+    if (compile_shader(GL_FRAGMENT_SHADER, "shader.frag", &fragment_shader_id) != 0) {
         return -1;
     }
 
@@ -75,10 +55,8 @@ static int initGL(void) {
         return -1;
     }
 
-    if (get_attrib_location(g_program_id, "LVertexPos2D", &g_vertex_pos_2d_location) != 0) {
-        return -1;
-    }
-
+    get_attrib_location(g_program_id, "LVertexPos2D", &g_vertex_pos_2d_location);
+    get_uniform_location(g_program_id, "timer", &g_timer_location);
     get_uniform_location(g_program_id, "projection_matrix", &g_projection_matrix_location);
 
     glGenVertexArrays(1, &g_vao);
@@ -94,7 +72,7 @@ static int initGL(void) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_ibo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(g_element_buffer_data), g_element_buffer_data, GL_STATIC_DRAW);
 
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glClearColor(0.5f, 0.69, 1.0f, 1.0f);
     glEnable(GL_DEPTH_TEST);
     glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
     cgMat4_perspective(&g_projection_matrix, 65.0, SCREEN_WIDTH * 1.0 / SCREEN_HEIGHT, 0.1, 60.0);
@@ -139,28 +117,25 @@ static int init(void) {
 }
 
 static void handle_keys(unsigned char key, int x, int y) {
-    if (key == 'q') {
-        g_render_quad = !g_render_quad;
-    }
 }
 
 static void render(void) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    if (g_render_quad) {
-        glUseProgram(g_program_id);
 
-        glUniformMatrix4fv(g_projection_matrix_location, 1, CG_MATH_GL_MATRIX_TRANSPOSE, (void *)&g_projection_matrix);
+    glUseProgram(g_program_id);
 
-        glEnableVertexAttribArray(g_vertex_pos_2d_location);
+    glUniform1f(g_timer_location, SDL_GetTicks());
+    glUniformMatrix4fv(g_projection_matrix_location, 1, CG_MATH_GL_MATRIX_TRANSPOSE, (void *)&g_projection_matrix);
 
-        glBindBuffer(GL_ARRAY_BUFFER, g_vbo);
-        glVertexAttribPointer(g_vertex_pos_2d_location, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+    glEnableVertexAttribArray(g_vertex_pos_2d_location);
 
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_ibo);
-        glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_INT, NULL);
+    glBindBuffer(GL_ARRAY_BUFFER, g_vbo);
+    glVertexAttribPointer(g_vertex_pos_2d_location, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
-        glDisableVertexAttribArray(g_vertex_pos_2d_location);
-    }
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_ibo);
+    glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_INT, NULL);
+
+    glDisableVertexAttribArray(g_vertex_pos_2d_location);
 }
 
 static void close(void) {
