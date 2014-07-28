@@ -1,7 +1,8 @@
+#include <glew.h>
+
 #include "util.h"
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <SDL.h>
 
 int compile_shader(GLenum type, const char *path, GLuint *shader_id) {
     return 0;
@@ -18,14 +19,14 @@ int compile_shader_from_memory(GLenum type, const GLchar *buf, GLint len,
     GLint status = 0;
     glGetShaderiv(id, GL_COMPILE_STATUS, &status);
     if (status == GL_FALSE) {
-        printf("Failed to compile shader.\n");
+        SDL_Log("Failed to compile shader.\n");
 #ifndef NDEBUG
         GLint log_length = 0;
         glGetShaderiv(id, GL_INFO_LOG_LENGTH, &log_length);
         if (log_length > 0) {
             GLchar *log = malloc(log_length);
             glGetShaderInfoLog(id, log_length, &log_length, log);
-            printf("Shader compile log: %s\n", log);
+            SDL_Log("Shader compile log: %s\n", log);
             free(log);
         }
 #endif
@@ -42,14 +43,14 @@ int link_program(GLuint program_id) {
     GLint status = 0;
     glGetProgramiv(program_id, GL_LINK_STATUS, &status);
     if (status == GL_FALSE) {
-        printf("Failed to link program %d", program_id);
+        SDL_Log("Failed to link program %d", program_id);
 #ifndef NDEBUG
         GLint log_length = 0;
         glGetProgramiv(program_id, GL_INFO_LOG_LENGTH, &log_length);
         if (log_length > 0) {
             GLchar *log = malloc(log_length);
             glGetProgramInfoLog(program_id, log_length, &log_length, log);
-            printf("Program link log: %s\n", log);
+            SDL_Log("Program link log: %s\n", log);
             free(log);
         }
 #endif
@@ -57,5 +58,23 @@ int link_program(GLuint program_id) {
         return -1;
     }
 
+    return 0;
+}
+
+int get_attrib_location(GLuint program_id, const char *varname, GLint *location) {
+    *location = glGetAttribLocation(program_id, varname);
+    if (*location == -1) {
+        SDL_Log("%s is not a valid GLSL program variable.\n", varname);
+        return -1;
+    }
+    return 0;
+}
+
+int get_uniform_location(GLuint program_id, const char *varname, GLint *location) {
+    *location = glGetUniformLocation(program_id, varname);
+    if (*location == -1) {
+        SDL_Log("%s is not a valid GLSL program uniform.\n", varname);
+        return -1;
+    }
     return 0;
 }

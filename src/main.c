@@ -1,10 +1,11 @@
-#include <stdio.h>
+#include <assert.h>
 
 #include <glew.h>
 #include <SDL.h>
 #include <SDL_opengl.h>
 
 #include "util.h"
+#include "cgMath.h"
 
 #define VERSION "0.0.0"
 
@@ -16,17 +17,30 @@ static SDL_GLContext g_context = NULL;
 
 static GLuint g_program_id = 0;
 static GLint g_vertex_pos_2d_location = -1;
+static GLint g_projection_matrix_location = -1;
 static GLuint g_vao = 0;
 static GLuint g_vbo = 0;
 static GLuint g_ibo = 0;
+
+static cgMat4 g_projection_matrix;
+
+static const GLfloat g_vertex_buffer_data[] = {
+   -1,-1,-10,
+    1,-1,-10,
+   -1, 1,-10,
+    1, 1,-10,
+};
+
+static const GLint g_element_buffer_data[] = {0, 1, 2, 3};
 
 static int g_render_quad = 1;
 
 static const char *g_vertex_shader = "                                        \
     #version 330 core                                                       \n\
-    in vec2 LVertexPos2D;                                                   \n\
+    uniform mat4 projection_matrix;                                         \n\
+    in vec3 LVertexPos2D;                                                   \n\
     void main() {                                                           \n\
-        gl_Position = vec4(LVertexPos2D.x, LVertexPos2D.y, 0, 1);           \n\
+        gl_Position = projection_matrix * vec4(LVertexPos2D.xyz, 1);        \n\
     }                                                                       \n\
 ";
 
@@ -34,12 +48,13 @@ static const char *g_fragment_shader = "                                    \n\
     #version 330 core                                                       \n\
     out vec4 LFragment;                                                     \n\
     void main() {                                                           \n\
-        LFragment = vec4(1.0, 1.0, 1.0, 1.0);                               \n\
+        LFragment = vec4(1.0, 0.0, 0.0, 1.0);                               \n\
     }                                                                       \n\
 ";
 
 static int initGL(void) {
     SDL_Log("OpenGL Version: %s\n", glGetString(GL_VERSION));
+
     g_program_id = glCreateProgram();
 
     GLuint vertex_shader_id = 0;
@@ -60,21 +75,11 @@ static int initGL(void) {
         return -1;
     }
 
-    g_vertex_pos_2d_location = glGetAttribLocation(g_program_id, "LVertexPos2D");
-    if (g_vertex_pos_2d_location == -1) {
-        printf("\"LVertexPos2D\" is not a valid GLSL program variable.\n");
+    if (get_attrib_location(g_program_id, "LVertexPos2D", &g_vertex_pos_2d_location) != 0) {
         return -1;
     }
 
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-
-    GLfloat vertex_data[] = {
-       -1.0f,-1.0f, 0.0f,
-        1.0f,-1.0f, 0.0f,
-        0.0f, 1.0f, 0.0f,
-    };
-
-    GLuint index_data[] = {0, 1, 2, 3};
+    get_uniform_location(g_program_id, "projection_matrix", &g_projection_matrix_location);
 
     glGenVertexArrays(1, &g_vao);
     glBindVertexArray(g_vao);
@@ -82,21 +87,24 @@ static int initGL(void) {
     // create VBO
     glGenBuffers(1, &g_vbo);
     glBindBuffer(GL_ARRAY_BUFFER, g_vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_data), vertex_data, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data), g_vertex_buffer_data, GL_STATIC_DRAW);
 
     // create IBO
-    /*
     glGenBuffers(1, &g_ibo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_ibo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, 4 * sizeof(GLuint), index_data, GL_STATIC_DRAW);
-    */
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(g_element_buffer_data), g_element_buffer_data, GL_STATIC_DRAW);
+
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glEnable(GL_DEPTH_TEST);
+    glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+    cgMat4_perspective(&g_projection_matrix, 65.0, SCREEN_WIDTH * 1.0 / SCREEN_HEIGHT, 0.1, 60.0);
 
     return 0;
 }
 
 static int init(void) {
     if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
-        printf("Failed to initialize SDL2. %s\n", SDL_GetError());
+        SDL_Log("Failed to initialize SDL2. %s\n", SDL_GetError());
         return -1;
     }
 
@@ -110,13 +118,13 @@ static int init(void) {
                                 SCREEN_WIDTH, SCREEN_HEIGHT,
                                 SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
     if (g_window == NULL) {
-        printf("Failed to create SDL2 window. %s\n", SDL_GetError());
+        SDL_Log("Failed to create SDL2 window: %s\n", SDL_GetError());
         return -1;
     }
 
     g_context = SDL_GL_CreateContext(g_window);
     if (g_context == NULL) {
-        printf("Failed to create OpenGL context. %s\n", SDL_GetError());
+        SDL_Log("Failed to create OpenGL context: %s\n", SDL_GetError());
         return -1;
     }
 
@@ -124,7 +132,7 @@ static int init(void) {
     glewExperimental = GL_TRUE;
     GLenum err = glewInit();
     if (err != GLEW_OK) {
-        printf("Failed to initialize GLEW. %s\n", glewGetErrorString(err));
+        SDL_Log("Failed to initialize GLEW. %s\n", glewGetErrorString(err));
     }
 
     return initGL();
@@ -137,18 +145,19 @@ static void handle_keys(unsigned char key, int x, int y) {
 }
 
 static void render(void) {
-    glClear(GL_COLOR_BUFFER_BIT);
-
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     if (g_render_quad) {
-        /*glUseProgram(g_program_id);*/
+        glUseProgram(g_program_id);
+
+        glUniformMatrix4fv(g_projection_matrix_location, 1, CG_MATH_GL_MATRIX_TRANSPOSE, (void *)&g_projection_matrix);
 
         glEnableVertexAttribArray(g_vertex_pos_2d_location);
 
         glBindBuffer(GL_ARRAY_BUFFER, g_vbo);
         glVertexAttribPointer(g_vertex_pos_2d_location, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
-        /*glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_ibo);*/
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_ibo);
+        glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_INT, NULL);
 
         glDisableVertexAttribArray(g_vertex_pos_2d_location);
     }
@@ -164,7 +173,7 @@ static void close(void) {
 
 int main(int argc, char *argv[]) {
     if (init() != 0) {
-        printf("Failed to initialize program.\n");
+        SDL_Log("Failed to initialize program.\n");
         return -1;
     }
 
