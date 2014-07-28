@@ -1,7 +1,7 @@
 #ifndef UTIL_H
 #define UTIL_H
 
-#include <SDL2/SDL_opengl.h>
+#include <glew.h>
 
 #define GLSL(x) #x
 
