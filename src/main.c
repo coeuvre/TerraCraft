@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #include <glew.h>
 #include <SDL.h>
 #include <SDL_opengl.h>
@@ -37,6 +39,7 @@ static const char *g_fragment_shader = "                                    \n\
 ";
 
 static int initGL(void) {
+    SDL_Log("OpenGL Version: %s\n", glGetString(GL_VERSION));
     g_program_id = glCreateProgram();
 
     GLuint vertex_shader_id = 0;
@@ -159,7 +162,7 @@ static void close(void) {
     SDL_Quit();
 }
 
-int main(void) {
+int main(int argc, char *argv[]) {
     if (init() != 0) {
         printf("Failed to initialize program.\n");
         return -1;
