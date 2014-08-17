@@ -9,6 +9,9 @@
 
 static const int SCREEN_WIDTH = 640;
 static const int SCREEN_HEIGHT = 480;
+static char *BASE_PATH = NULL;
+static char g_string_buffer[256];
+const static int g_string_buffer_size = 256;
 
 static SDL_Window *g_window = NULL;
 static SDL_GLContext g_context = NULL;
@@ -23,14 +26,21 @@ static GLuint g_ibo = 0;
 
 static cgMat4 g_projection_matrix;
 
-static const GLfloat g_vertex_buffer_data[] = {
-   -1,-1,-10,
-    1,-1,-10,
-   -1, 1,-10,
-    1, 1,-10,
+static GLfloat g_vertex_buffer_data[24];
+const static GLint g_element_buffer_data[] = {
+    0, 3, 2,
+    0, 1, 3,
+    4, 7, 5,
+    4, 6, 7,
+    2, 3, 7,
+    2, 7, 6,
+    0, 4, 5,
+    0, 5, 1,
+    1, 5, 7,
+    1, 7, 3,
+    0, 6, 4,
+    0, 2, 6,
 };
-
-static const GLint g_element_buffer_data[] = {0, 1, 2, 3};
 
 static int initGL(void) {
     SDL_Log("OpenGL Version: %s\n", glGetString(GL_VERSION));
@@ -40,11 +50,12 @@ static int initGL(void) {
     GLuint vertex_shader_id = 0;
     GLuint fragment_shader_id = 0;
 
-    if (compile_shader(GL_VERTEX_SHADER, "shader.vert", &vertex_shader_id) != 0) {
+    ;
+    if (compile_shader(GL_VERTEX_SHADER, resource_path(BASE_PATH, "shader.vert", g_string_buffer, g_string_buffer_size), &vertex_shader_id) != 0) {
         return -1;
     }
 
-    if (compile_shader(GL_FRAGMENT_SHADER, "shader.frag", &fragment_shader_id) != 0) {
+    if (compile_shader(GL_FRAGMENT_SHADER, resource_path(BASE_PATH, "shader.frag", g_string_buffer, g_string_buffer_size), &fragment_shader_id) != 0) {
         return -1;
     }
 
@@ -61,6 +72,8 @@ static int initGL(void) {
 
     glGenVertexArrays(1, &g_vao);
     glBindVertexArray(g_vao);
+
+    make_cube(0, 0, -10, 0.5, g_vertex_buffer_data);
 
     // create VBO
     glGenBuffers(1, &g_vbo);
@@ -113,6 +126,8 @@ static int init(void) {
         SDL_Log("Failed to initialize GLEW. %s\n", glewGetErrorString(err));
     }
 
+    BASE_PATH = SDL_GetBasePath();
+
     return initGL();
 }
 
@@ -133,7 +148,7 @@ static void render(void) {
     glVertexAttribPointer(g_vertex_pos_2d_location, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_ibo);
-    glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_INT, NULL);
+    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, NULL);
 
     glDisableVertexAttribArray(g_vertex_pos_2d_location);
 }
@@ -144,6 +159,8 @@ static void close(void) {
     SDL_DestroyWindow(g_window);
 
     SDL_Quit();
+
+    free(BASE_PATH);
 }
 
 int main(int argc, char *argv[]) {
@@ -158,10 +175,18 @@ int main(int argc, char *argv[]) {
     SDL_StartTextInput();
 
     while (!is_quit) {
+
         while (SDL_PollEvent(&e) != 0) {
+
             switch (e.type) {
                 case SDL_QUIT:
                     is_quit = 1;
+                    break;
+                case SDL_KEYDOWN:
+                    if (e.type == SDL_KEYDOWN
+                        && e.key.keysym.sym == SDLK_ESCAPE) {
+                        is_quit = 1;
+                    }
                     break;
                 case SDL_TEXTINPUT: {
                     int x = 0, y = 0;
