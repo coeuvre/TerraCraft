@@ -42,6 +42,23 @@ const static GLint g_element_buffer_data[] = {
     0, 2, 6,
 };
 
+typedef struct Fps {
+    unsigned int frames;
+    int timestamp;
+} Fps;
+
+void Fps_update(Fps *self) {
+    self->frames++;
+    int now = SDL_GetTicks();
+    int elapsed = now - self->timestamp;
+    if (elapsed >= 1000) {
+        int result = self->frames;
+        self->frames = 0;
+        self->timestamp = now;
+        printf("%d\n", result);
+    }
+}
+
 static int initGL(void) {
     SDL_Log("OpenGL Version: %s\n", glGetString(GL_VERSION));
 
@@ -139,7 +156,7 @@ static void render(void) {
 
     glUseProgram(g_program_id);
 
-    glUniform1f(g_timer_location, SDL_GetTicks());
+    glUniform1f(g_timer_location, SDL_GetTicks() * 1.0 / 1000);
     glUniformMatrix4fv(g_projection_matrix_location, 1, CG_MATH_GL_MATRIX_TRANSPOSE, (void *)&g_projection_matrix);
 
     glEnableVertexAttribArray(g_vertex_pos_2d_location);
@@ -166,6 +183,8 @@ static void close(void) {
 }
 
 int main(int argc, char *argv[]) {
+    Fps fps = {0, 0};
+
     if (init() != 0) {
         SDL_Log("Failed to initialize program.\n");
         return -1;
@@ -177,6 +196,7 @@ int main(int argc, char *argv[]) {
     SDL_StartTextInput();
 
     while (!is_quit) {
+        Fps_update(&fps);
 
         while (SDL_PollEvent(&e) != 0) {
 
