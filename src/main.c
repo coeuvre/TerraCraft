@@ -26,7 +26,7 @@ static GLuint g_ibo = 0;
 
 static cgMat4 g_projection_matrix;
 
-static GLfloat g_vertex_buffer_data[24];
+static GLfloat g_vertex_buffer_data[72];
 const static GLint g_element_buffer_data[] = {
     0, 3, 2,
     0, 1, 3,
@@ -73,7 +73,9 @@ static int initGL(void) {
     glGenVertexArrays(1, &g_vao);
     glBindVertexArray(g_vao);
 
-    make_cube(0, 0, -10, 0.5, g_vertex_buffer_data);
+    make_cube( 0, 0, -10, 0.5, g_vertex_buffer_data);
+    make_cube(-3, 0, -10, 0.5, g_vertex_buffer_data + 24);
+    make_cube( 3, 0, -10, 0.5, g_vertex_buffer_data + 48);
 
     // create VBO
     glGenBuffers(1, &g_vbo);
@@ -148,7 +150,9 @@ static void render(void) {
     glVertexAttribPointer(g_vertex_pos_2d_location, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_ibo);
-    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, NULL);
+    glDrawElementsInstanced(GL_TRIANGLES, 36, GL_UNSIGNED_INT, NULL, 3);
+    /*glDrawElementsBaseVertex(GL_TRIANGLES, 36, GL_UNSIGNED_INT, NULL, 8);*/
+    /*glDrawElementsBaseVertex(GL_TRIANGLES, 36, GL_UNSIGNED_INT, NULL, 16);*/
 
     glDisableVertexAttribArray(g_vertex_pos_2d_location);
 }
