@@ -4,6 +4,17 @@ uniform float timer;
 uniform mat4 projection_matrix;
 in vec4 LVertexPos2D;
 
+flat out int instance;
+
+mat4 translate(vec3 t) {
+    return mat4(
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        t.x, t.y, t.z, 1.0
+    );
+}
+
 mat4 rotationMatrix(vec3 axis, float angle) {
     vec3 a = normalize(axis);
     float s = sin(angle);
@@ -30,5 +41,12 @@ mat4 rotationMatrix(vec3 axis, float angle) {
 }
 
 void main() {
-    gl_Position = projection_matrix * rotationMatrix(vec3(1, 0, 0), gl_InstanceID * 0.2) * rotationMatrix(vec3(0, 1, 0), sin(timer * 2) / 2) * LVertexPos2D;
+    vec4 p = LVertexPos2D;
+    int i = gl_InstanceID;
+    instance = i;
+    int x = i % 9 - 4;
+    int y = i / 9 - 4;
+    p = translate(vec3(sin(timer * 0.003) * 4 + x * 2, y * 2, -20)) * p;
+    p = projection_matrix * p;
+    gl_Position = p;
 }

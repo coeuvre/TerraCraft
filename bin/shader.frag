@@ -1,7 +1,10 @@
 #version 330 core
 
+flat in int instance;
 out vec3 color;
 
 void main() {
-    color = vec3(1.0, 1.0, 1.0);
+    int i = instance;
+    float c = i / 80.0;
+    color = vec3(c, c, c);
 }
